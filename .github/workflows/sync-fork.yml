@@ -2,8 +2,8 @@ name: Sync Fork with Upstream
 
 on:
   schedule:
-    - cron: "0 */6 * * *"  # 每6小时运行
-  workflow_dispatch:          # 支持手动点击运行
+    - cron: "10 */6 * * *"   # 每6小时运行（在第10分钟），与生成任务错开
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,19 +15,26 @@ jobs:
       - name: Checkout your repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # 重要：拉取完整历史
+          fetch-depth: 0
 
       - name: Sync from upstream
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 添加 upstream（原作者仓库）
+          # 添加 upstream
           git remote add upstream https://github.com/xiaotan8/xiaotan8.github.io.git || true
           
           git fetch upstream
           
-          # 合并 upstream 的 main 分支（请确认原仓库默认分支是 main）
-          git merge upstream/main --allow-unrelated-histories || echo "Merge conflict or already up to date"
+          # 尝试合并 upstream 的最新代码
+          if git merge upstream/main --allow-unrelated-histories; then
+            echo "Successfully merged upstream changes"
+          else
+            echo "Merge conflict detected, aborting merge"
+            git merge --abort
+            exit 1
+          fi
           
-          git push origin main --force-with-lease   # 安全 push
+          # 安全推送
+          git push origin main --force-with-lease
